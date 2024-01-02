@@ -42,12 +42,12 @@ func New(log *slog.Logger, urlSaver UrlSaver) http.HandlerFunc {
 		err := render.DecodeJSON(r.Body, &request)
 		if errors.Is(err, io.EOF) {
 			log.Error("Request body is empty")
-			render.JSON(w, r, response.Error("Empty request"))
+			responseError(w, r, "Empty request")
 			return
 		}
 		if err != nil {
 			log.Error("Failed to decode Request body", sl.Err(err))
-			render.JSON(w, r, response.Error("Failed to decode request"))
+			responseError(w, r, "Failed to decode request")
 			return
 		}
 		log.Info("Reqeust body decoded", slog.Any("request", request))
@@ -55,7 +55,7 @@ func New(log *slog.Logger, urlSaver UrlSaver) http.HandlerFunc {
 		if err := validator.New().Struct(request); err != nil {
 			validateErr := err.(validator.ValidationErrors)
 			log.Error("Invalid request", sl.Err(err))
-			render.JSON(w, r, response.Error(validateErr.Error()))
+			responseError(w, r, validateErr.Error())
 			return
 		}
 
@@ -67,12 +67,12 @@ func New(log *slog.Logger, urlSaver UrlSaver) http.HandlerFunc {
 		id, err := urlSaver.Save(request.Url, alias)
 		if errors.Is(err, storage.ErrURLExists) {
 			log.Info("URL already exists", slog.String("url", request.Url))
-			render.JSON(w, r, response.Error("URL already exists"))
+			responseError(w, r, "URL already exists")
 			return
 		}
 		if err != nil {
 			log.Error("Failed to add URL", sl.Err(err))
-			render.JSON(w, r, response.Error("Failed to add URL"))
+			responseError(w, r, "Failed to add URL")
 			return
 		}
 
@@ -86,4 +86,8 @@ func responseOk(w http.ResponseWriter, r *http.Request, alias string) {
 		Response: response.OK(),
 		Alias:    alias,
 	})
+}
+
+func responseError(w http.ResponseWriter, r *http.Request, errMsg string) {
+	render.JSON(w, r, response.Error(errMsg))
 }
